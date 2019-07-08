@@ -214,6 +214,16 @@ function toNdjson(data) {
   return outNdjson;
 }
 
+async function sendToPubsub(msg) {
+  log(`Pubsub sending message: ${msg}`);
+  const buffer = Buffer.from(msg);
+  await pubsub
+    .topic(config.pubsubTopicId)
+    .publisher()
+    .publish(buffer);
+  log(`Pubsub sent: ${msg}`);
+}
+
 /**
  * Publishes a message to the Pub/Sub topic for every ID in config.json source object.
  *
@@ -221,38 +231,13 @@ function toNdjson(data) {
  * @returns {Promise<any[]>} Resolved promise when all IDs have been published.
  */
 async function sendAllPubsubMsgs(ids) {
+  const executionId = uuidv1();
   return await Promise.all(ids.map(async (id) => {
-    const msg = Buffer.from(id + `${separator}${thirdPartyIncluded}${separator}mobile`);
-    log(`${id}: Sending init PubSub message [3P mobile]`);
-    await pubsub
-      .topic(config.pubsubTopicId)
-      .publisher()
-      .publish(msg);
-    log(`${id}: Init PubSub message sent [3P mobile]`);
-
-    log(`${id}: Sending init PubSub message [3P desktop]`);
-    const msgThirdPDesktop = Buffer.from(id+ `${separator}${thirdPartyIncluded}${separator}desktop`);
-    await pubsub
-      .topic(config.pubsubTopicId)
-      .publisher()
-      .publish(msgThirdPDesktop);
-    log(`${id}: Init PubSub message sent [3P desktop]`);
-
-    log(`${id}: Sending init PubSub message [no 3P mobile]`);
-    const msgNoThirdParyMobile = Buffer.from(id+ `${separator}${thirdPartyBlocked}${separator}mobile`);
-    await pubsub
-      .topic(config.pubsubTopicId)
-      .publisher()
-      .publish(msgNoThirdParyMobile);
-    log(`${id}: Init PubSub message sent [no 3P mobile]`);
-
-    log(`${id}: Sending init PubSub message [no 3P desktop]`);
-    const msgNoThirdParyDesktop = Buffer.from(id+ `${separator}${thirdPartyBlocked}${separator}desktop`);
-    await pubsub
-      .topic(config.pubsubTopicId)
-      .publisher()
-      .publish(msgNoThirdParyDesktop);
-    log(`${id}: Init PubSub message sent [no 3P desktop]`)
+    log(`Processing: ${id}`)
+    await sendToPubsub(`${id}${separator}${thirdPartyIncluded}${separator}mobile${separator}${executionId}`);
+    await sendToPubsub(`${id}${separator}${thirdPartyIncluded}${separator}desktop${separator}${executionId}`);
+    await sendToPubsub(`${id}${separator}${thirdPartyBlocked}${separator}mobile${separator}${executionId}`);
+    await sendToPubsub(`${id}${separator}${thirdPartyBlocked}${separator}desktop${separator}${executionId}`);
   }));
 }
 
@@ -379,8 +364,9 @@ async function launchLighthouse (event, callback) {
     const [src] = source.filter(obj => obj.id === idMsg);
     const id = src.id;
     const url = src.url;
+    const executionId = msgParts[3] || 'no_execution_id';
 
-    log(`${msg}: Received message to start with URL ${url}, third party ${msgParts[1]}, mode ${msgParts[2]}`);
+    log(`${msg}: Received message to start with URL ${url}, third party ${msgParts[1]}, mode ${msgParts[2]}, executionId: ${executionId}`);
 
     const timeNow = new Date().getTime();
     const eventState = await checkEventState(msg, timeNow);
@@ -394,6 +380,7 @@ async function launchLighthouse (event, callback) {
     const json = createJSON(res.lhr, id);
 
     json.job_id = uuid;
+    json.execution_id = executionId;
 
     // await writeFile(`/tmp/${uuid}.json`, toNdjson(json));
 
