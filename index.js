@@ -81,19 +81,23 @@ async function launchBrowserWithLighthouse(id, url, lighthouseFlags) {
 
   lighthouseFlags.port = (new URL(browser.wsEndpoint())).port;
 
-  log(`${id}: Starting lighthouse for ${url}`);
+  async function launch() {
+    const lhr = await lighthouse(url, lighthouseFlags);
+    log(`${id}: Lighthouse done for ${url}`);
+    return lhr;
+  }
 
-  log(lighthouseFlags);
-
-  const lhr = await lighthouse(url, lighthouseFlags);
-
-  log(`${id}: Lighthouse done for ${url}`);
-
-  await browser.close();
-
-  log(`${id}: Browser closed for ${url}`);
-
-  return lhr;
+  try {
+    log(`${id}: Starting lighthouse for ${url}`);
+    log(lighthouseFlags);
+    return await launch();
+  } catch (e) {
+    log(`${id}: Retrying lighthouse for ${url}`);
+    return await launch();
+  } finally {
+    await browser.close();
+    log(`${id}: Browser closed for ${url}`);
+  }
 }
 
 /**
@@ -361,11 +365,11 @@ async function launchLighthouse (event, callback) {
 
     const ids = source.map(obj => obj.id);
     const uuid = uuidv1();
-    const metadata = {
-      sourceFormat: 'NEWLINE_DELIMITED_JSON',
-      schema: {fields: bqSchema},
-      jobId: uuid
-    };
+    // const metadata = {
+    //   sourceFormat: 'NEWLINE_DELIMITED_JSON',
+    //   schema: {fields: bqSchema},
+    //   jobId: uuid
+    // };
 
     // If the Pub/Sub message is not valid
     if (idMsg !== 'all' && !ids.includes(idMsg)) { return console.error('No valid message found!'); }
@@ -412,11 +416,11 @@ async function launchLighthouse (event, callback) {
     }
 
     try {
-      const [result] = await dataset
+      await dataset
       .table('reports')
       .insert({id: uuid, json: json}, {raw: true});
     
-      log(`${id}: BigQuery job with ID ${uuid} finished with result ${JSON.stringify(result)}`);
+      log(`${id}: BigQuery job with ID ${uuid} finished  for ${url}`);
     } catch(err) {      
       log('Error on insert of bigquery')
       log(JSON.stringify(err))
