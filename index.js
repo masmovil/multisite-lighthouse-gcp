@@ -359,7 +359,7 @@ async function launchLighthouse (event, callback) {
     const [src] = source.filter(obj => obj.id === idMsg);
     const id = src.id;
     const url = src.url;
-    const executionId = msgParts[3];
+    const executionId = msgParts[3] || 'no_execution_id';
 
     log(`${msg}: Received message to start with URL ${url}, third party ${msgParts[1]}, mode ${msgParts[2]}, executionId: ${executionId}`);
 
