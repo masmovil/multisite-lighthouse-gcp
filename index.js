@@ -336,8 +336,8 @@ async function launchLighthouse (event, callback) {
           const extraUrlParts = extraUrl.split(':');
           if (extraUrlParts[0] && extraUrlParts[1]) {
             return {
-              'url': extraUrlParts[0],
-              'id': extraUrlParts[1]
+              'id': extraUrlParts[0],
+              'url': extraUrlParts[1]
             }
           }
         }).filter(Boolean)
