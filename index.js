@@ -229,6 +229,7 @@ async function sendToPubsub(msg) {
 async function sendAllPubsubMsgs(ids) {
   const executionId = uuidv1();
   return await Promise.all(ids.map(async (id) => {
+    log(`Processing: ${id}`)
     await sendToPubsub(`${id}${separator}${thirdPartyIncluded}${separator}mobile${separator}${executionId}`);
     await sendToPubsub(`${id}${separator}${thirdPartyIncluded}${separator}desktop${separator}${executionId}`);
     await sendToPubsub(`${id}${separator}${thirdPartyBlocked}${separator}mobile${separator}${executionId}`);
