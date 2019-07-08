@@ -337,7 +337,7 @@ async function launchLighthouse (event, callback) {
       source = flatContentfulJson(externalSource)
       if (process.env.EXTRA_URLS) {
         const extras = process.env.EXTRA_URLS.split(',').map(extraUrl => {
-          const extraUrlParts = extraUrl.split(':');
+          const extraUrlParts = extraUrl.split('::');
           if (extraUrlParts[0] && extraUrlParts[1]) {
             return {
               'id': extraUrlParts[0],
