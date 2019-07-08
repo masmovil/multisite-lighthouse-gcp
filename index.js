@@ -335,8 +335,20 @@ async function launchLighthouse (event, callback) {
       }
       const externalSource = await requestGet({uri: sourceUrl, headers: headers});
       source = flatContentfulJson(externalSource)
+      if (process.env.EXTRA_URLS) {
+        const extras = process.env.EXTRA_URLS.split(',').map(extraUrl => {
+          const extraUrlParts = extraUrl.split(':');
+          if (extraUrlParts[0] && extraUrlParts[1]) {
+            return {
+              'id': extraUrlParts[0],
+              'url': extraUrlParts[1]
+            }
+          }
+        }).filter(Boolean)
+        source.push(...extras);
+      }
     }
-
+    
     const msg = Buffer.from(event.data, 'base64').toString();
     const msgParts = msg.split(separator);
     const idMsg = msgParts[0];
@@ -359,7 +371,9 @@ async function launchLighthouse (event, callback) {
     // If the Pub/Sub message is not valid
     if (idMsg !== 'all' && !ids.includes(idMsg)) { return console.error('No valid message found!'); }
 
-    if (idMsg === 'all') { return sendAllPubsubMsgs(ids); }
+    if (idMsg === 'all') { 
+      return sendAllPubsubMsgs(ids); 
+    }
 
     const [src] = source.filter(obj => obj.id === idMsg);
     const id = src.id;
