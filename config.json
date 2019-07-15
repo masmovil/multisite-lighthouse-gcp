@@ -7,7 +7,7 @@
   ],
   "projectId": "true-solstice-207115",
   "pubsubTopicId": "launch-yoigo-lighthouse",
-  "datasetId": "yoigo_lighthouse",
+  "datasetId": "lighthouse_yoigo",
   "minTimeBetweenTriggers": 290000,
   "gcs": {
     "bucketName": "yoigo-lighthouse-report"
