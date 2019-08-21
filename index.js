@@ -218,7 +218,7 @@ async function sendToPubsub(msg) {
   log(`Pubsub sending message: ${msg}`);
   const buffer = Buffer.from(msg);
   await pubsub
-    .topic(config.pubsubTopicId)
+    .topic(process.env.PUBSUB_TOPIC || config.pubsubTopicId)
     .publisher()
     .publish(buffer);
   log(`Pubsub sent: ${msg}`);
@@ -236,8 +236,10 @@ async function sendAllPubsubMsgs(ids) {
     log(`Processing: ${id}`)
     await sendToPubsub(`${id}${separator}${thirdPartyIncluded}${separator}mobile${separator}${executionId}`);
     await sendToPubsub(`${id}${separator}${thirdPartyIncluded}${separator}desktop${separator}${executionId}`);
-    await sendToPubsub(`${id}${separator}${thirdPartyBlocked}${separator}mobile${separator}${executionId}`);
-    await sendToPubsub(`${id}${separator}${thirdPartyBlocked}${separator}desktop${separator}${executionId}`);
+    if (process.env.THIRDPARTY_TO_BLOCK) {
+      await sendToPubsub(`${id}${separator}${thirdPartyBlocked}${separator}mobile${separator}${executionId}`);
+      await sendToPubsub(`${id}${separator}${thirdPartyBlocked}${separator}desktop${separator}${executionId}`);
+    }
   }));
 }
 
@@ -249,7 +251,8 @@ async function sendAllPubsubMsgs(ids) {
  * @returns {Promise<void>} Resolved promise when all write operations are complete.
  */
 async function writeLogAndReportsToStorage(obj, id) {
-  const bucket = storage.bucket(config.gcs.bucketName);
+  const bucketName = process.env.BUCKET_NAME || config.gcs.bucketName;
+  const bucket = storage.bucket(bucketName);
   config.lighthouseFlags.output = config.lighthouseFlags.output || [];
   await Promise.all(config.lighthouseFlags.output.map(async (fileType, idx) => {
     let filePath = `${id}/report_${obj.lhr.fetchTime}`;
@@ -268,13 +271,13 @@ async function writeLogAndReportsToStorage(obj, id) {
         mimetype = 'text/html';
     }
     const file = bucket.file(filePath);
-    log(`${id}: Writing ${fileType} report to bucket ${config.gcs.bucketName}`);
+    log(`${id}: Writing ${fileType} report to bucket ${bucketName}`);
     return await file.save(obj.report[idx], {
       metadata: {contentType: mimetype}
     });
   }));
   const file = bucket.file(`${id}/log_${obj.lhr.fetchTime}.json`);
-  log(`${id}: Writing log to bucket ${config.gcs.bucketName}`);
+  log(`${id}: Writing log to bucket ${bucketName}`);
   return await file.save(JSON.stringify(obj.lhr, null, " "), {
     metadata: {contentType: 'application/json'}
   });
@@ -289,12 +292,13 @@ async function writeLogAndReportsToStorage(obj, id) {
  * @returns {Promise<object>} Object describing active state and time delta between invocation and when the state entry was created, if necessary.
  */
 async function checkEventState(id, timeNow) {
+  const bucketName = process.env.BUCKET_NAME || config.gcs.bucketName;
   let eventStates = {};
   try {
     // Try to load existing state file from storage
     const destination = `/tmp/state_${id}.json`;
     await storage
-      .bucket(config.gcs.bucketName)
+      .bucket(bucketName)
       .file(`${id}/state.json`)
       .download({destination: destination});
     eventStates = JSON.parse(await readFile(destination));
@@ -308,7 +312,7 @@ async function checkEventState(id, timeNow) {
 
   // Otherwise write the state of the event with current timestamp and save to bucket
   eventStates[id] = {created: timeNow};
-  await storage.bucket(config.gcs.bucketName).file(`${id}/state.json`).save(JSON.stringify(eventStates, null, " "), {
+  await storage.bucket(bucketName).file(`${id}/state.json`).save(JSON.stringify(eventStates, null, " "), {
     metadata: {contentType: 'application/json'}
   });
   return {active: false}
@@ -398,15 +402,10 @@ async function launchLighthouse (event, callback) {
 
     // await writeFile(`/tmp/${uuid}.json`, toNdjson(json));
 
-    log(`${id}: BigQuery job with ID ${uuid} starting for ${url}`);
-
-    // const [job] = await bigquery
-    //   .dataset(config.datasetId)
-    //   .table('reports')
-    //   .load(`/tmp/${uuid}.json`, metadata);
+    log(`${id}: BigQuery job with ID ${uuid} starting for ${url}`);;
 
 
-    const dataset = bigquery.dataset(config.datasetId);
+    const dataset = bigquery.dataset(process.env.DATASET_ID || config.datasetId);
     const tableExists = await dataset.table('reports').exists();
     if (!tableExists[0]) {
       const options = {
@@ -434,18 +433,20 @@ async function launchLighthouse (event, callback) {
 
 function flatContentfulJson(json) {
   const fields = JSON.parse(json.body).fields;
-  const sections = ['help', 'fmcTariffs', 'mobileTariffs', 'mobilePhones', 'fixedTariffs'];
+  const sections = ['help', 'fmcTariffs', 'mobileTariffs', 'mobilePhones', 'fixedTariffs', 'prepaidTariffs', 'other', 'bussiness', 'privateZone'];
   const sourceArray = [];
   sections.forEach(section => {
-    sourceArray.push({url: fields.json[section]['url'], id: fields.json[section]['name']})
-    fields.json[section]['list'].forEach(entry => {
-        sourceArray.push({url: entry.url, id: entry.name})
-        if (entry.list) {
-          entry.list.forEach(subEntry => {
-            sourceArray.push({url: subEntry.url, id: subEntry.name})
-          })
-      }
-    })
+    if (fields.json[section]) {
+      sourceArray.push({url: fields.json[section]['url'], id: fields.json[section]['name']})
+      fields.json[section]['list'].forEach(entry => {
+          sourceArray.push({url: entry.url, id: entry.name})
+          if (entry.list) {
+            entry.list.forEach(subEntry => {
+              sourceArray.push({url: subEntry.url, id: subEntry.name})
+            })
+        }
+      })
+    }
   })
   return sourceArray;
 }
