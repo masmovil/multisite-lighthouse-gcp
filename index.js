@@ -433,7 +433,7 @@ async function launchLighthouse (event, callback) {
 
 function flatContentfulJson(json) {
   const fields = JSON.parse(json.body).fields;
-  const sections = ['help', 'fmcTariffs', 'mobileTariffs', 'mobilePhones', 'fixedTariffs', 'prepaidTariffs', 'other', 'bussiness', 'privateZone'];
+  const sections = ['help', 'fmcTariffs', 'mobileTariffs', 'mobilePhones', 'fixedTariffs', 'prepaidTariffs', 'other', 'bussiness', 'privateZone', 'fullWeb'];
   const sourceArray = [];
   sections.forEach(section => {
     if (fields.json[section]) {
