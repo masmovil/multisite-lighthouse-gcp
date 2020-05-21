@@ -58,7 +58,7 @@ const validator = new Validator;
 
 const log = console.log;
 
-const separator = '_';
+const separator = '__';
 const thirdPartyBlocked = '3PBlocked';
 const thirdPartyIncluded = '3PIncluded';
 
@@ -232,13 +232,17 @@ async function sendToPubsub(msg) {
  */
 async function sendAllPubsubMsgs(ids) {
   const executionId = uuidv1();
+  const tableTemplate = `lighthouse_${process.env.BRAND || config.brand}_`;
+  const d = new Date(); 
+  d.setDate(d.getDate() - 1); 
+  const tableName = tableTemplate.concat(d.toISOString().slice(0,10).replace(/-/g,""));
   return await Promise.all(ids.map(async (id) => {
     log(`Processing: ${id}`)
-    await sendToPubsub(`${id}${separator}${thirdPartyIncluded}${separator}mobile${separator}${executionId}`);
-    await sendToPubsub(`${id}${separator}${thirdPartyIncluded}${separator}desktop${separator}${executionId}`);
+    await sendToPubsub(`${id}${separator}${thirdPartyIncluded}${separator}mobile${separator}${executionId}${separator}${tableName}`);
+    await sendToPubsub(`${id}${separator}${thirdPartyIncluded}${separator}desktop${separator}${executionId}${separator}${tableName}`);
     if (process.env.THIRDPARTY_TO_BLOCK) {
-      await sendToPubsub(`${id}${separator}${thirdPartyBlocked}${separator}mobile${separator}${executionId}`);
-      await sendToPubsub(`${id}${separator}${thirdPartyBlocked}${separator}desktop${separator}${executionId}`);
+      await sendToPubsub(`${id}${separator}${thirdPartyBlocked}${separator}mobile${separator}${executionId}${separator}${tableName}`);
+      await sendToPubsub(`${id}${separator}${thirdPartyBlocked}${separator}desktop${separator}${executionId}${separator}${tableName}`);
     }
   }));
 }
@@ -406,18 +410,19 @@ async function launchLighthouse (event, callback) {
 
 
     const dataset = bigquery.dataset(process.env.DATASET_ID || config.datasetId);
-    const tableExists = await dataset.table('reports').exists();
+    const tableName = msgParts[4] || 'reports';
+    const tableExists = await dataset.table(tableName).exists();
     if (!tableExists[0]) {
       const options = {
         schema: bqSchema
       };
       await dataset
-      .createTable('reports', options);
+      .createTable(tableName, options);
     }
 
     try {
       await dataset
-      .table('reports')
+      .table(tableName)
       .insert({id: uuid, json: json}, {raw: true});
     
       log(`${id}: BigQuery job with ID ${uuid} finished  for ${url}`);

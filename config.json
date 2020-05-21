@@ -5,9 +5,10 @@
       "id": "home"
     }
   ],
-  "projectId": "true-solstice-207115",
+  "projectId": "mm-webapps-prod",
   "pubsubTopicId": "launch-default-lighthouse",
   "datasetId": "lighthouse_default",
+  "brand": "default",
   "minTimeBetweenTriggers": 290000,
   "gcs": {
     "bucketName": "default-lighthouse-report"
