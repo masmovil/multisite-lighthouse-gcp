@@ -233,8 +233,7 @@ async function sendToPubsub(msg) {
 async function sendAllPubsubMsgs(ids) {
   const executionId = uuidv1();
   const tableTemplate = `lighthouse_${process.env.BRAND || config.brand}_`;
-  const d = new Date(); 
-  d.setDate(d.getDate() - 1); 
+  const d = new Date();
   const tableName = tableTemplate.concat(d.toISOString().slice(0,10).replace(/-/g,""));
   return await Promise.all(ids.map(async (id) => {
     log(`Processing: ${id}`)
